@@ -4,105 +4,153 @@ import createHttpError from "http-errors";
 import userModel from "./userModel";
 import { sign } from "jsonwebtoken";
 import { config } from "../config/config";
-import { User } from "./userTypes";
+import { AuthRequest } from "./authTypes";
 
-// Register user code
-const createUser = async (req: Request, res: Response, next: NextFunction) => {
-  const { name, email, password } = req.body;
-  // validation
-  if (!name || !email || !password) {
-    const error = createHttpError(400, "All fields are required");
+// Register User
+const registerUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { name, username, email, password, avatar, bio, skills } = req.body;
 
-    return next(error);
+  // Validation
+  if (!name || !username || !email || !password) {
+    return next(createHttpError(400, "All required fields are required"));
   }
 
   try {
-    //   Database call
-    const user = await userModel.findOne({
-      email,
-    });
+    // Check if email already exists
+    const existingEmail = await userModel.findOne({ email });
 
-    if (user) {
-      const error = createHttpError(400, "User already exist");
-
-      return next(error);
+    if (existingEmail) {
+      return next(createHttpError(400, "Email already exists"));
     }
-  } catch (error) {
-    return next(createHttpError(500, "Error while getting user"));
-  }
 
-  //   password -> hash
-  const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if username already exists
+    const existingUsername = await userModel.findOne({ username });
 
-  let newUser: User;
+    if (existingUsername) {
+      return next(createHttpError(400, "Username already exists"));
+    }
 
-  try {
-    newUser = await userModel.create({
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const newUser = await userModel.create({
       name,
+      username,
       email,
       password: hashedPassword,
+      avatar,
+      bio,
+      skills,
+    });
+
+    // Generate JWT
+    const token = sign(
+      { sub: newUser._id },
+      config.jwtSecretKey as string,
+      {
+        expiresIn: "7d",
+      },
+    );
+
+    // Response
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      accessToken: token,
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        username: newUser.username,
+        email: newUser.email,
+        avatar: newUser.avatar,
+        bio: newUser.bio,
+        skills: newUser.skills,
+        emailVerified: newUser.emailVerified,
+      },
     });
   } catch (error) {
     return next(createHttpError(500, "Error while creating user"));
   }
-
-  try {
-    // Token generation JWT
-    const token = sign({ sub: newUser._id }, config.jwtSecretKey as string, {
-      expiresIn: "7d",
-    });
-
-    // response
-    res.status(201).json({ accessToken: token });
-  } catch (error) {
-    return next(createHttpError(500, "Error while generating token"));
-  }
 };
 
-
-// Login Logic
-const loginUser = async (req: Request, res: Response, next: NextFunction) => {
+// Login User
+const loginUser = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   const { email, password } = req.body;
 
-  // validation
+  // Validation
   if (!email || !password) {
-    const error = createHttpError(400, "All fields are required");
-
-    return next(error);
+    return next(createHttpError(400, "All fields are required"));
   }
-  let user: User;
-  // Find User
+
   try {
-    user = await userModel.findOne({ email });
+    // Find user and include password
+    const user = await userModel
+      .findOne({ email })
+      .select("+password");
 
     if (!user) {
-      return next(createHttpError(404, "User Not Found"));
+      return next(createHttpError(404, "User not found"));
     }
-  } catch (error) {
-    return next(createHttpError(500, "Error while getting user"));
-  }
 
-  try {
+    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return next(createHttpError(401, "Password Does Not Match"));
+      return next(createHttpError(401, "Invalid email or password"));
     }
-  } catch (error) {
-    return next(createHttpError(500, "Error while password matching"));
-  }
 
-  try {
-    // create accesstoken
-    const token = sign({ sub: user._id }, config.jwtSecretKey as string, {
-      expiresIn: "7d",
+    // Generate JWT
+    const token = sign(
+      { sub: user._id },
+      config.jwtSecretKey as string,
+      {
+        expiresIn: "7d",
+      },
+    );
+
+    // Response
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      accessToken: token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        bio: user.bio,
+        skills: user.skills,
+        emailVerified: user.emailVerified,
+      },
     });
-
-    res.status(200).json({ accessToken: token });
   } catch (error) {
-    return next(createHttpError(500, "Error while generating token"));
+    return next(createHttpError(500, "Error while logging in"));
   }
 };
 
+const getCurrentUser = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    res.status(200).json({
+      success: true,
+      user: req.user,
+    });
+  } catch (error) {
+    return next(createHttpError(500, "Error while fetching user"));
+  }
+};
 
-export { createUser, loginUser };
+export { registerUser, loginUser, getCurrentUser };

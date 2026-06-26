@@ -1,12 +1,15 @@
 import express from "express";
-import { createUser, loginUser } from "./userController";
+import { getCurrentUser, loginUser, registerUser } from "./userController";
+import authenticate from "../middleware/authMiddleware";
 
 const userRouter = express.Router();
 
 // routes
-userRouter.post("/register", createUser);
+userRouter.post("/register", registerUser);
 
 userRouter.post("/login", loginUser);
+
+userRouter.get("/me", authenticate, getCurrentUser)
 
 
 

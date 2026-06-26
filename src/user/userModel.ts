@@ -5,20 +5,62 @@ const userSchema = new mongoose.Schema<User>(
   {
     name: {
       type: String,
-      required: true,
+      required: [true, "Name is required"],
+      trim: true,
+      minlength: [3, "Name must be at least 3 characters"],
+      maxlength: [50, "Name cannot exceed 50 characters"],
     },
+
+    username: {
+      type: String,
+      required: [true, "Username is required"],
+      unique: true,
+      trim: true,
+      lowercase: true,
+      minlength: [3, "Username must be at least 3 characters"],
+      maxlength: [30, "Username cannot exceed 30 characters"],
+    },
+
     email: {
       type: String,
+      required: [true, "Email is required"],
       unique: true,
-      required: true,
+      trim: true,
+      lowercase: true,
     },
+
     password: {
       type: String,
-      required: true,
+      required: [true, "Password is required"],
+      minlength: [8, "Password must be at least 8 characters"],
+      select: false,
+    },
+
+    avatar: {
+      type: String,
+      default: "",
+    },
+
+    bio: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: [250, "Bio cannot exceed 250 characters"],
+    },
+
+    skills: {
+      type: [String],
+      default: [],
+    },
+
+    emailVerified: {
+      type: Boolean,
+      default: false,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  }
 );
 
-// users
-export default mongoose.model<User>('User', userSchema)
+export default mongoose.model<User>("User", userSchema);
