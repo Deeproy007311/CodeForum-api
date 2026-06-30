@@ -152,4 +152,51 @@ const acceptAnswer = async (
     return next(createHttpError(500, "Error while accepting answer"));
   }
 };
-export { createAnswer, getAnswersByQuestion, acceptAnswer };
+
+// Edit Answer
+const editAnswer = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { answerId } = req.params;
+  const { content } = req.body;
+
+  // Validation
+  if (!content) {
+    return next(createHttpError(400, "Answer content is required"));
+  }
+
+  try {
+    // Find answer
+    const answer = await answerModel.findById(answerId);
+
+    if (!answer) {
+      return next(createHttpError(404, "Answer not found"));
+    }
+
+    // Check ownership
+    if (answer.author.toString() !== req.user?._id.toString()) {
+      return next(
+        createHttpError(
+          403,
+          "Only the answer owner can edit this answer",
+        ),
+      );
+    }
+
+    // Update answer
+    answer.content = content;
+
+    await answer.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Answer updated successfully",
+      answer,
+    });
+  } catch (error) {
+    return next(createHttpError(500, "Error while updating answer"));
+  }
+};
+export { createAnswer, getAnswersByQuestion, acceptAnswer, editAnswer };

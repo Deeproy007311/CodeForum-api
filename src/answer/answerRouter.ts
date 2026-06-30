@@ -1,7 +1,12 @@
 import express from "express";
 
 import authenticate from "../middleware/authMiddleware";
-import { acceptAnswer, createAnswer, getAnswersByQuestion } from "./answerController";
+import {
+  acceptAnswer,
+  createAnswer,
+  editAnswer,
+  getAnswersByQuestion,
+} from "./answerController";
 
 const answerRouter = express.Router();
 
@@ -14,5 +19,7 @@ answerRouter.get("/:questionId/answers", getAnswersByQuestion);
 // Accept Answer (Question Owner Only)
 answerRouter.patch("/answers/:answerId/accept", authenticate, acceptAnswer);
 
+// Edit Answer
+answerRouter.patch("/answers/:answerId", authenticate, editAnswer);
 
 export default answerRouter;

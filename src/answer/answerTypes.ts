@@ -11,6 +11,10 @@ export interface Answer {
 
   isAccepted: boolean;
 
+  upvotes: number;
+
+  downvotes: number;
+
   createdAt?: Date;
   updatedAt?: Date;
 }

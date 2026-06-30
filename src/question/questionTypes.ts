@@ -11,6 +11,9 @@ export interface Question {
 
   isSolved: boolean;
 
+  upvotes: number;
+  downvotes: number;
+
   createdAt: Date;
   updatedAt: Date;
 }
