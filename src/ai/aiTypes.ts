@@ -13,3 +13,6 @@ export interface ImproveQuestionResponse {
   description: string;
   suggestions: string[];
 }
+export interface ExplainCodeRequest {
+  code: string;
+}

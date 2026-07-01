@@ -91,7 +91,15 @@ class AIService {
   }
 
   async explainCode(code: string) {
-    return this.askAI(PROMPTS.explainCode, code);
+    const userPrompt = `
+    Explain the following source code professionally.
+
+    Source Code:
+
+    ${code}
+    `;
+
+    return this.askAI(PROMPTS.explainCode, userPrompt);
   }
 }
 
