@@ -22,6 +22,10 @@ const generateAnswer = async (
       tags: tags ?? [],
     });
 
+    console.log("\n================ AI RESPONSE ================\n");
+    console.log(answer);
+    console.log("\n=============================================\n");
+
     return res.status(200).json({
       success: true,
       answer,
@@ -34,4 +38,31 @@ const generateAnswer = async (
   }
 };
 
-export { generateAnswer };
+const improveQuestion = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const { title, description } = req.body;
+
+    if (!description) {
+      return next(createHttpError(400, "Description is required"));
+    }
+
+    const result = await aiService.improveQuestion({
+      title,
+      description,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return next(createHttpError(500, "Failed to improve question"));
+  }
+};
+export { generateAnswer, improveQuestion };
