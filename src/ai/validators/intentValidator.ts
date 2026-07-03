@@ -16,9 +16,7 @@ const codePatterns = [
   /SELECT\s.+FROM/i,
 ];
 
-export function validateQuestionIntent(
-  text: string,
-): ValidationResult {
+export function validateQuestionIntent(text: string): ValidationResult {
   for (const pattern of codePatterns) {
     if (pattern.test(text)) {
       return {
@@ -33,3 +31,49 @@ export function validateQuestionIntent(
     valid: true,
   };
 }
+
+export const isMeaningfulProgrammingQuestion = (text: string): boolean => {
+  const cleanedText = text.trim();
+
+  // Too short to be a useful question
+  if (cleanedText.length < 15) {
+    return false;
+  }
+
+  const programmingKeywords = [
+    "html",
+    "css",
+    "javascript",
+    "typescript",
+    "react",
+    "node",
+    "express",
+    "mongodb",
+    "mongoose",
+    "python",
+    "java",
+    "php",
+    "mysql",
+    "api",
+    "database",
+    "error",
+    "bug",
+    "function",
+    "component",
+    "code",
+    "frontend",
+    "backend",
+    "server",
+    "programming",
+    "website",
+    "web",
+    "app",
+    "application",
+  ];
+
+  const lowerText = cleanedText.toLowerCase();
+
+  return programmingKeywords.some((keyword) =>
+    lowerText.includes(keyword),
+  );
+};
