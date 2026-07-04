@@ -4,45 +4,36 @@ import mongoose from "mongoose";
 
 import voteModel from "./voteModel";
 import questionModel from "../question/questionModel";
+import answerModel from "../answer/answerModel";
 import { AuthRequest } from "../user/authTypes";
 
-import answerModel from "../answer/answerModel";
-
-// Upvote Question
 const upvoteQuestion = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { questionId } = req.params as {
-    questionId: string;
-  };
+  const questionId = String(req.params.questionId);
 
-  // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(questionId)) {
     return next(createHttpError(400, "Invalid question id"));
   }
 
-  try {
-    // Authentication
-    if (!req.user) {
-      return next(createHttpError(401, "Unauthorized"));
-    }
+  if (!req.user) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
 
-    // Check Question
+  try {
     const question = await questionModel.findById(questionId);
 
     if (!question) {
       return next(createHttpError(404, "Question not found"));
     }
 
-    // Existing Vote
     const existingVote = await voteModel.findOne({
       user: req.user._id,
       question: questionId,
     });
 
-    // Case 1 - First Vote
     if (!existingVote) {
       await voteModel.create({
         user: req.user._id,
@@ -59,11 +50,10 @@ const upvoteQuestion = async (
       });
     }
 
-    // Case 2 - Toggle Upvote
     if (existingVote.voteType === 1) {
       await existingVote.deleteOne();
 
-      question.upvotes -= 1;
+      question.upvotes = Math.max(question.upvotes - 1, 0);
       await question.save();
 
       return res.status(200).json({
@@ -72,11 +62,10 @@ const upvoteQuestion = async (
       });
     }
 
-    // Case 3 - Downvote -> Upvote
     existingVote.voteType = 1;
     await existingVote.save();
 
-    question.downvotes -= 1;
+    question.downvotes = Math.max(question.downvotes - 1, 0);
     question.upvotes += 1;
     await question.save();
 
@@ -85,46 +74,38 @@ const upvoteQuestion = async (
       message: "Changed to upvote",
     });
   } catch (error) {
-    console.error(error);
+    console.error("Upvote question error:", error);
     return next(createHttpError(500, "Error while upvoting question"));
   }
 };
 
-// Downvote Question
 const downvoteQuestion = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { questionId } = req.params as {
-    questionId: string;
-  };
+  const questionId = String(req.params.questionId);
 
-  // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(questionId)) {
     return next(createHttpError(400, "Invalid question id"));
   }
 
-  try {
-    // Authentication
-    if (!req.user) {
-      return next(createHttpError(401, "Unauthorized"));
-    }
+  if (!req.user) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
 
-    // Check Question
+  try {
     const question = await questionModel.findById(questionId);
 
     if (!question) {
       return next(createHttpError(404, "Question not found"));
     }
 
-    // Existing Vote
     const existingVote = await voteModel.findOne({
       user: req.user._id,
       question: questionId,
     });
 
-    // Case 1 - First Vote
     if (!existingVote) {
       await voteModel.create({
         user: req.user._id,
@@ -141,11 +122,10 @@ const downvoteQuestion = async (
       });
     }
 
-    // Case 2 - Toggle Downvote
     if (existingVote.voteType === -1) {
       await existingVote.deleteOne();
 
-      question.downvotes -= 1;
+      question.downvotes = Math.max(question.downvotes - 1, 0);
       await question.save();
 
       return res.status(200).json({
@@ -154,11 +134,10 @@ const downvoteQuestion = async (
       });
     }
 
-    // Case 3 - Upvote -> Downvote
     existingVote.voteType = -1;
     await existingVote.save();
 
-    question.upvotes -= 1;
+    question.upvotes = Math.max(question.upvotes - 1, 0);
     question.downvotes += 1;
     await question.save();
 
@@ -167,46 +146,38 @@ const downvoteQuestion = async (
       message: "Changed to downvote",
     });
   } catch (error) {
-    console.error(error);
+    console.error("Downvote question error:", error);
     return next(createHttpError(500, "Error while downvoting question"));
   }
 };
 
-// Upvote Answer
 const upvoteAnswer = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { answerId } = req.params as {
-    answerId: string;
-  };
+  const answerId = String(req.params.answerId);
 
-  // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(answerId)) {
     return next(createHttpError(400, "Invalid answer id"));
   }
 
-  try {
-    // Authentication
-    if (!req.user) {
-      return next(createHttpError(401, "Unauthorized"));
-    }
+  if (!req.user) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
 
-    // Check Answer
+  try {
     const answer = await answerModel.findById(answerId);
 
     if (!answer) {
       return next(createHttpError(404, "Answer not found"));
     }
 
-    // Existing Vote
     const existingVote = await voteModel.findOne({
       user: req.user._id,
       answer: answerId,
     });
 
-    // Case 1 - First Vote
     if (!existingVote) {
       await voteModel.create({
         user: req.user._id,
@@ -223,11 +194,10 @@ const upvoteAnswer = async (
       });
     }
 
-    // Case 2 - Toggle Upvote
     if (existingVote.voteType === 1) {
       await existingVote.deleteOne();
 
-      answer.upvotes -= 1;
+      answer.upvotes = Math.max(answer.upvotes - 1, 0);
       await answer.save();
 
       return res.status(200).json({
@@ -236,11 +206,10 @@ const upvoteAnswer = async (
       });
     }
 
-    // Case 3 - Downvote -> Upvote
     existingVote.voteType = 1;
     await existingVote.save();
 
-    answer.downvotes -= 1;
+    answer.downvotes = Math.max(answer.downvotes - 1, 0);
     answer.upvotes += 1;
     await answer.save();
 
@@ -249,46 +218,38 @@ const upvoteAnswer = async (
       message: "Changed to upvote",
     });
   } catch (error) {
-    console.error(error);
+    console.error("Upvote answer error:", error);
     return next(createHttpError(500, "Error while upvoting answer"));
   }
 };
 
-// Downvote Answer
 const downvoteAnswer = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { answerId } = req.params as {
-    answerId: string;
-  };
+  const answerId = String(req.params.answerId);
 
-  // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(answerId)) {
     return next(createHttpError(400, "Invalid answer id"));
   }
 
-  try {
-    // Authentication
-    if (!req.user) {
-      return next(createHttpError(401, "Unauthorized"));
-    }
+  if (!req.user) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
 
-    // Check Answer
+  try {
     const answer = await answerModel.findById(answerId);
 
     if (!answer) {
       return next(createHttpError(404, "Answer not found"));
     }
 
-    // Existing Vote
     const existingVote = await voteModel.findOne({
       user: req.user._id,
       answer: answerId,
     });
 
-    // Case 1 → First Vote
     if (!existingVote) {
       await voteModel.create({
         user: req.user._id,
@@ -296,15 +257,20 @@ const downvoteAnswer = async (
         voteType: -1,
       });
 
+      answer.downvotes += 1;
+      await answer.save();
+
       return res.status(200).json({
         success: true,
         message: "Answer downvoted",
       });
     }
 
-    // Case 2 → Toggle Downvote
     if (existingVote.voteType === -1) {
       await existingVote.deleteOne();
+
+      answer.downvotes = Math.max(answer.downvotes - 1, 0);
+      await answer.save();
 
       return res.status(200).json({
         success: true,
@@ -312,16 +278,19 @@ const downvoteAnswer = async (
       });
     }
 
-    // Case 3 → Upvote → Downvote
     existingVote.voteType = -1;
     await existingVote.save();
+
+    answer.upvotes = Math.max(answer.upvotes - 1, 0);
+    answer.downvotes += 1;
+    await answer.save();
 
     return res.status(200).json({
       success: true,
       message: "Changed to downvote",
     });
   } catch (error) {
-    console.error(error);
+    console.error("Downvote answer error:", error);
     return next(createHttpError(500, "Error while downvoting answer"));
   }
 };

@@ -14,30 +14,25 @@ const registerUser = async (
 ) => {
   const { name, username, email, password, avatar, bio, skills } = req.body;
 
-  // Validation
   if (!name || !username || !email || !password) {
     return next(createHttpError(400, "All required fields are required"));
   }
 
   try {
-    // Check if email already exists
     const existingEmail = await userModel.findOne({ email });
 
     if (existingEmail) {
       return next(createHttpError(400, "Email already exists"));
     }
 
-    // Check if username already exists
     const existingUsername = await userModel.findOne({ username });
 
     if (existingUsername) {
       return next(createHttpError(400, "Username already exists"));
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const newUser = await userModel.create({
       name,
       username,
@@ -46,19 +41,16 @@ const registerUser = async (
       avatar,
       bio,
       skills,
+      // plan is automatically "free" from userModel default
     });
 
-    // Generate JWT
     const token = sign(
       { sub: newUser._id },
       config.jwtSecretKey as string,
-      {
-        expiresIn: "7d",
-      },
+      { expiresIn: "7d" },
     );
 
-    // Response
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "User registered successfully",
       accessToken: token,
@@ -71,6 +63,7 @@ const registerUser = async (
         bio: newUser.bio,
         skills: newUser.skills,
         emailVerified: newUser.emailVerified,
+        plan: newUser.plan,
       },
     });
   } catch (error) {
@@ -86,39 +79,30 @@ const loginUser = async (
 ) => {
   const { email, password } = req.body;
 
-  // Validation
   if (!email || !password) {
     return next(createHttpError(400, "All fields are required"));
   }
 
   try {
-    // Find user and include password
-    const user = await userModel
-      .findOne({ email })
-      .select("+password");
+    const user = await userModel.findOne({ email }).select("+password");
 
     if (!user) {
       return next(createHttpError(404, "User not found"));
     }
 
-    // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return next(createHttpError(401, "Invalid email or password"));
     }
 
-    // Generate JWT
     const token = sign(
       { sub: user._id },
       config.jwtSecretKey as string,
-      {
-        expiresIn: "7d",
-      },
+      { expiresIn: "7d" },
     );
 
-    // Response
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Login successful",
       accessToken: token,
@@ -131,6 +115,7 @@ const loginUser = async (
         bio: user.bio,
         skills: user.skills,
         emailVerified: user.emailVerified,
+        plan: user.plan,
       },
     });
   } catch (error) {
@@ -138,13 +123,14 @@ const loginUser = async (
   }
 };
 
+// Fetch logged-in user
 const getCurrentUser = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       user: req.user,
     });

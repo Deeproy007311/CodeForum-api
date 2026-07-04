@@ -6,44 +6,46 @@ import answerModel from "./answerModel";
 import questionModel from "../question/questionModel";
 import { AuthRequest } from "../user/authTypes";
 
-// Create Answer
 const createAnswer = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { questionId } = req.params as { questionId: string };
-  const { content } = req.body as { content: string };
+  const questionId = String(req.params.questionId);
+  const { content } = req.body;
 
-  // Validation
-  if (!content || !content.trim()) {
+  if (!mongoose.Types.ObjectId.isValid(questionId)) {
+    return next(createHttpError(400, "Invalid question id"));
+  }
+
+  if (!content || typeof content !== "string" || !content.trim()) {
     return next(createHttpError(400, "Answer content is required"));
   }
 
+  if (content.trim().length < 5 || content.trim().length > 10000) {
+    return next(
+      createHttpError(400, "Answer must be between 5 and 10000 characters"),
+    );
+  }
+
+  if (!req.user) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
+
   try {
-    if (!mongoose.Types.ObjectId.isValid(questionId)) {
-      return next(createHttpError(400, "Invalid question id"));
-    }
-    // Check if question exists
     const question = await questionModel.findById(questionId);
 
     if (!question) {
       return next(createHttpError(404, "Question not found"));
     }
 
-    // Check authentication
-    if (!req.user) {
-      return next(createHttpError(401, "Unauthorized"));
-    }
-
-    // Create answer
     const answer = await answerModel.create({
       content: content.trim(),
       author: req.user._id,
       question: question._id,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: "Answer posted successfully",
       answer,
@@ -53,21 +55,18 @@ const createAnswer = async (
   }
 };
 
-// Get Answers of a Question
 const getAnswersByQuestion = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { questionId } = req.params as { questionId: string };
+  const questionId = String(req.params.questionId);
 
-  // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(questionId)) {
     return next(createHttpError(400, "Invalid question id"));
   }
 
   try {
-    // Check if question exists
     const question = await questionModel.findById(questionId);
 
     if (!question) {
@@ -77,9 +76,9 @@ const getAnswersByQuestion = async (
     const answers = await answerModel
       .find({ question: questionId })
       .populate("author", "name username avatar")
-      .sort({ createdAt: 1 });
+      .sort({ isAccepted: -1, createdAt: 1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: answers.length,
       answers,
@@ -89,61 +88,52 @@ const getAnswersByQuestion = async (
   }
 };
 
-// Accept Answer
 const acceptAnswer = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { answerId } = req.params as { answerId: string };
+  const answerId = String(req.params.answerId);
 
-  // Validate ObjectId
   if (!mongoose.Types.ObjectId.isValid(answerId)) {
     return next(createHttpError(400, "Invalid answer id"));
   }
 
-  try {
-    // Check authentication
-    if (!req.user) {
-      return next(createHttpError(401, "Unauthorized"));
-    }
+  if (!req.user) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
 
-    // Find answer
+  try {
     const answer = await answerModel.findById(answerId);
 
     if (!answer) {
       return next(createHttpError(404, "Answer not found"));
     }
 
-    // Find question
     const question = await questionModel.findById(answer.question);
 
     if (!question) {
       return next(createHttpError(404, "Question not found"));
     }
 
-    // Only question owner can accept an answer
     if (question.author.toString() !== req.user._id.toString()) {
       return next(
         createHttpError(403, "Only the question owner can accept an answer"),
       );
     }
 
-    // Remove previously accepted answer
     await answerModel.updateMany(
       { question: question._id },
       { isAccepted: false },
     );
 
-    // Accept selected answer
     answer.isAccepted = true;
     await answer.save();
 
-    // Mark question as solved
     question.isSolved = true;
     await question.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Answer accepted successfully",
       answer,
@@ -153,44 +143,49 @@ const acceptAnswer = async (
   }
 };
 
-// Edit Answer
 const editAnswer = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
-  const { answerId } = req.params;
+  const answerId = String(req.params.answerId);
   const { content } = req.body;
 
-  // Validation
-  if (!content) {
+  if (!mongoose.Types.ObjectId.isValid(answerId)) {
+    return next(createHttpError(400, "Invalid answer id"));
+  }
+
+  if (!content || typeof content !== "string" || !content.trim()) {
     return next(createHttpError(400, "Answer content is required"));
   }
 
+  if (content.trim().length < 5 || content.trim().length > 10000) {
+    return next(
+      createHttpError(400, "Answer must be between 5 and 10000 characters"),
+    );
+  }
+
+  if (!req.user) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
+
   try {
-    // Find answer
     const answer = await answerModel.findById(answerId);
 
     if (!answer) {
       return next(createHttpError(404, "Answer not found"));
     }
 
-    // Check ownership
-    if (answer.author.toString() !== req.user?._id.toString()) {
+    if (answer.author.toString() !== req.user._id.toString()) {
       return next(
-        createHttpError(
-          403,
-          "Only the answer owner can edit this answer",
-        ),
+        createHttpError(403, "Only the answer owner can edit this answer"),
       );
     }
 
-    // Update answer
-    answer.content = content;
-
+    answer.content = content.trim();
     await answer.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Answer updated successfully",
       answer,
@@ -199,4 +194,5 @@ const editAnswer = async (
     return next(createHttpError(500, "Error while updating answer"));
   }
 };
+
 export { createAnswer, getAnswersByQuestion, acceptAnswer, editAnswer };

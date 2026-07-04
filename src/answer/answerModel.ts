@@ -7,6 +7,8 @@ const answerSchema = new mongoose.Schema<Answer>(
       type: String,
       required: true,
       trim: true,
+      minlength: [5, "Answer must be at least 5 characters"],
+      maxlength: [10000, "Answer cannot exceed 10000 characters"],
     },
 
     author: {

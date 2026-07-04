@@ -57,10 +57,17 @@ const userSchema = new mongoose.Schema<User>(
       type: Boolean,
       default: false,
     },
+
+    plan: {
+      type: String,
+      enum: ["free", "pro"],
+      default: "free",
+      required: true,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export default mongoose.model<User>("User", userSchema);

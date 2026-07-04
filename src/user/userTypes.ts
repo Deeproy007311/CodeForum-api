@@ -1,3 +1,5 @@
+export type UserPlan = "free" | "pro";
+
 export interface User {
   _id: string;
 
@@ -11,6 +13,8 @@ export interface User {
   skills: string[];
 
   emailVerified: boolean;
+
+  plan: UserPlan;
 
   createdAt: Date;
   updatedAt: Date;
