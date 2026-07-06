@@ -1,9 +1,15 @@
+import crypto from "crypto";
 import { NextFunction, Response } from "express";
 import createHttpError from "http-errors";
 
 import { AuthRequest } from "../user/authTypes";
+import { config } from "../config/config";
+import razorpay from "./razorpay";
 import { getCurrentSubscription, upgradeUserPlan } from "./subscriptionService";
-import { SubscriptionPlan } from "./subscriptionTypes";
+import subscriptionModel from "./subscriptionModel";
+
+const PRO_PLAN_AMOUNT = 19900; // ₹199.00 in paise
+const PRO_PLAN_DURATION_DAYS = 30;
 
 const getMySubscription = async (
   req: AuthRequest,
@@ -29,11 +35,7 @@ const getMySubscription = async (
   }
 };
 
-/*
-  Temporary endpoint only for testing.
-  Later Razorpay webhook/payment verification will call upgradeUserPlan().
-*/
-const testUpgradePlan = async (
+const createRazorpayOrder = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
@@ -45,23 +47,97 @@ const testUpgradePlan = async (
       return next(createHttpError(401, "Unauthorized"));
     }
 
-    const { plan } = req.body as { plan?: SubscriptionPlan };
+    const order = await razorpay.orders.create({
+      amount: PRO_PLAN_AMOUNT,
+      currency: "INR",
+      receipt: `pro_${Date.now()}`,
+      notes: {
+        userId,
+        plan: "pro",
+        durationDays: String(PRO_PLAN_DURATION_DAYS),
+      },
+    });
 
-    if (plan !== "free" && plan !== "pro") {
-      return next(createHttpError(400, "Plan must be either 'free' or 'pro'"));
+    return res.status(201).json({
+      success: true,
+      order: {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+      },
+      keyId: config.razorpayKeyId,
+      plan: {
+        name: "Pro",
+        amount: PRO_PLAN_AMOUNT / 100,
+        currency: "INR",
+        durationDays: PRO_PLAN_DURATION_DAYS,
+      },
+    });
+  } catch (error) {
+    console.error("Create Razorpay order error:", error);
+    return next(createHttpError(500, "Failed to create payment order"));
+  }
+};
+
+const verifyRazorpayPayment = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.user?._id.toString();
+
+    if (!userId) {
+      return next(createHttpError(401, "Unauthorized"));
+    }
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
+      req.body as {
+        razorpay_order_id?: string;
+        razorpay_payment_id?: string;
+        razorpay_signature?: string;
+      };
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return next(createHttpError(400, "Missing Razorpay payment details"));
+    }
+
+    if (!config.razorpayKeySecret) {
+      return next(createHttpError(500, "Razorpay secret key is missing"));
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", config.razorpayKeySecret)
+      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+      .digest("hex");
+
+    if (expectedSignature !== razorpay_signature) {
+      return next(createHttpError(400, "Invalid payment signature"));
+    }
+
+    // Prevent the same Razorpay payment from activating Pro twice
+    const existingPayment = await subscriptionModel.findOne({
+      paymentId: razorpay_payment_id,
+      paymentProvider: "razorpay",
+    });
+
+    if (existingPayment) {
+      return next(
+        createHttpError(400, "This payment has already been processed"),
+      );
     }
 
     const result = await upgradeUserPlan({
       userId,
-      plan,
-      paymentProvider: "manual",
-      paymentId: `test_${Date.now()}`,
-      durationDays: plan === "pro" ? 30 : 0,
+      plan: "pro",
+      paymentId: razorpay_payment_id,
+      paymentProvider: "razorpay",
+      durationDays: PRO_PLAN_DURATION_DAYS,
     });
 
     return res.status(200).json({
       success: true,
-      message: `Plan changed to ${plan}`,
+      message: "Payment verified. Pro subscription activated successfully.",
       user: {
         _id: result.user._id,
         name: result.user.name,
@@ -72,8 +148,9 @@ const testUpgradePlan = async (
       subscription: result.subscription,
     });
   } catch (error) {
-    return next(error);
+    console.error("Verify Razorpay payment error:", error);
+    return next(createHttpError(500, "Failed to verify payment"));
   }
 };
 
-export { getMySubscription, testUpgradePlan };
+export { getMySubscription, createRazorpayOrder, verifyRazorpayPayment };

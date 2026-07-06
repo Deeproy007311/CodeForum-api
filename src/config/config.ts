@@ -8,6 +8,9 @@ const _config = {
   env: process.env.NODE_ENV,
   jwtSecretKey: process.env.JWT_KEY,
   groqApiKey: process.env.GROQ_API_KEY,
+
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET,
 };
 
 export const config = Object.freeze(_config);

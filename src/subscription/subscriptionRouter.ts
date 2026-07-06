@@ -2,19 +2,25 @@ import express from "express";
 
 import authenticate from "../middleware/authMiddleware";
 import {
+  createRazorpayOrder,
   getMySubscription,
-  testUpgradePlan,
+  verifyRazorpayPayment,
 } from "./subscriptionController";
 
 const subscriptionRouter = express.Router();
 
 subscriptionRouter.get("/me", authenticate, getMySubscription);
 
-// Temporary testing route — remove or protect with admin/payment verification later.
-subscriptionRouter.patch(
-  "/test-upgrade",
+subscriptionRouter.post(
+  "/create-order",
   authenticate,
-  testUpgradePlan,
+  createRazorpayOrder,
+);
+
+subscriptionRouter.post(
+  "/verify-payment",
+  authenticate,
+  verifyRazorpayPayment,
 );
 
 export default subscriptionRouter;

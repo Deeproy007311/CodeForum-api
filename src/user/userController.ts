@@ -1,10 +1,21 @@
 import { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import createHttpError from "http-errors";
-import userModel from "./userModel";
+import mongoose from "mongoose";
 import { sign } from "jsonwebtoken";
+
+import userModel from "./userModel";
 import { config } from "../config/config";
 import { AuthRequest } from "./authTypes";
+
+import questionModel from "../question/questionModel";
+import answerModel from "../answer/answerModel";
+import voteModel from "../vote/voteModel";
+
+import aiUsageModel from "../ai/usage/aiUsageModel";
+import aiHistoryModel from "../ai/history/aiHistoryModel";
+
+import subscriptionModel from "../subscription/subscriptionModel";
 
 // Register User
 const registerUser = async (
@@ -41,16 +52,13 @@ const registerUser = async (
       avatar,
       bio,
       skills,
-      // plan is automatically "free" from userModel default
     });
 
-    const token = sign(
-      { sub: newUser._id },
-      config.jwtSecretKey as string,
-      { expiresIn: "7d" },
-    );
+    const token = sign({ sub: newUser._id }, config.jwtSecretKey as string, {
+      expiresIn: "7d",
+    });
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "User registered successfully",
       accessToken: token,
@@ -72,11 +80,7 @@ const registerUser = async (
 };
 
 // Login User
-const loginUser = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+const loginUser = async (req: Request, res: Response, next: NextFunction) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -96,13 +100,11 @@ const loginUser = async (
       return next(createHttpError(401, "Invalid email or password"));
     }
 
-    const token = sign(
-      { sub: user._id },
-      config.jwtSecretKey as string,
-      { expiresIn: "7d" },
-    );
+    const token = sign({ sub: user._id }, config.jwtSecretKey as string, {
+      expiresIn: "7d",
+    });
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Login successful",
       accessToken: token,
@@ -123,14 +125,13 @@ const loginUser = async (
   }
 };
 
-// Fetch logged-in user
 const getCurrentUser = async (
   req: AuthRequest,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       user: req.user,
     });
@@ -139,4 +140,83 @@ const getCurrentUser = async (
   }
 };
 
-export { registerUser, loginUser, getCurrentUser };
+const deleteMyAccount = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  if (!req.user?._id) {
+    return next(createHttpError(401, "Unauthorized"));
+  }
+
+  const userId = req.user._id.toString();
+
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return next(createHttpError(401, "Invalid authenticated user"));
+  }
+
+  try {
+    // Find all questions created by this user
+    const userQuestions = await questionModel
+      .find({ author: userId })
+      .select("_id");
+
+    const questionIds = userQuestions.map((question) => question._id);
+
+    // Find all answers under the user's questions
+    const answersOnUserQuestions = await answerModel
+      .find({ question: { $in: questionIds } })
+      .select("_id");
+
+    const answerIdsOnUserQuestions = answersOnUserQuestions.map(
+      (answer) => answer._id,
+    );
+
+    // Find all answers written by this user on any question
+    const userAnswers = await answerModel
+      .find({ author: userId })
+      .select("_id");
+
+    const allAnswerIds = [
+      ...answerIdsOnUserQuestions,
+      ...userAnswers.map((answer) => answer._id),
+    ];
+
+    // Delete votes made by user and votes connected to deleted content
+    await voteModel.deleteMany({
+      $or: [
+        { user: userId },
+        { question: { $in: questionIds } },
+        { answer: { $in: allAnswerIds } },
+      ],
+    });
+
+    // Delete answers written by user and answers under their questions
+    await answerModel.deleteMany({
+      $or: [{ author: userId }, { question: { $in: questionIds } }],
+    });
+
+    // Delete questions written by user
+    await questionModel.deleteMany({ author: userId });
+
+    // Delete AI usage and AI history
+    await aiUsageModel.deleteMany({ user: userId });
+    await aiHistoryModel.deleteMany({ user: userId });
+
+    // Delete all subscription records
+    await subscriptionModel.deleteMany({ user: userId });
+
+    // Delete user document last
+    await userModel.deleteOne({ _id: userId });
+
+    return res.status(200).json({
+      success: true,
+      message: "Your account and all related data were deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete account error:", error);
+    return next(createHttpError(500, "Failed to delete account"));
+  }
+};
+
+export { registerUser, loginUser, getCurrentUser, deleteMyAccount };
