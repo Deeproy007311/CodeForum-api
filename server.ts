@@ -7,20 +7,19 @@ const startServer = async () => {
   try {
     await connectDB();
 
-    // Check expired Pro subscriptions once when server starts
     await expireEndedSubscriptions();
 
-    // Check again every 1 hour
-    setInterval(async () => {
-      try {
-        await expireEndedSubscriptions();
-      } catch (error) {
-        console.error("Subscription expiry check failed:", error);
-      }
-    }, 60 * 60 * 1000);
+    setInterval(
+      () => {
+        void expireEndedSubscriptions().catch((error) => {
+          console.error("Subscription expiry check failed:", error);
+        });
+      },
+      60 * 60 * 1000,
+    );
 
-    app.listen(config.port, () => {
-      console.log(`Listening on port ${config.port}`);
+    app.listen(config.port, "0.0.0.0", () => {
+      console.log(`CodeForum API listening on port ${config.port}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
@@ -28,4 +27,4 @@ const startServer = async () => {
   }
 };
 
-startServer();
+void startServer();

@@ -1,22 +1,28 @@
 {
-  "name": "elib-apis",
+  "name": "codeforum-api",
   "version": "1.0.0",
-  "description": "This is a e book api project",
-  "main": "index.js",
+  "description": "CodeForum REST API with AI tools and Razorpay test payments",
+  "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.ts"
+    "dev": "nodemon --exec ts-node server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
   },
   "keywords": [
     "rest",
     "api",
-    "express"
+    "express",
+    "typescript",
+    "mongodb",
+    "ai",
+    "razorpay"
   ],
-  "author": "Deep Roy <royd5333@Gmail.com>",
+  "author": "Deep Roy",
   "license": "ISC",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
     "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.6",
     "@types/http-errors": "^2.0.5",
@@ -33,6 +39,7 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
