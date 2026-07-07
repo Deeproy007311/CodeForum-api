@@ -2,15 +2,20 @@ import mongoose from "mongoose";
 import { config } from "./config";
 
 const connectDB = async () => {
-  mongoose.connection.on("connected", () => {
+  if (!config.databaseUrl) {
+    throw new Error("MONGO_CONNECTION_STRING is missing");
+  }
+
+  try {
+    await mongoose.connect(config.databaseUrl);
+
     console.log("MongoDB connected successfully");
-  });
+  } catch (error) {
+    console.error("MongoDB connection failed:");
+    console.error(error);
 
-  mongoose.connection.on("error", (error) => {
-    console.error("MongoDB connection error:", error);
-  });
-
-  await mongoose.connect(config.databaseUrl);
+    throw error;
+  }
 };
 
 export default connectDB;

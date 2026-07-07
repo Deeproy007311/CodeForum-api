@@ -5,26 +5,30 @@ import expireEndedSubscriptions from "./src/subscription/subscriptionExpiryServi
 
 const startServer = async () => {
   try {
+    if (!config.port) {
+      throw new Error("PORT is missing");
+    }
+
     await connectDB();
 
     await expireEndedSubscriptions();
 
-    setInterval(
-      () => {
-        void expireEndedSubscriptions().catch((error) => {
-          console.error("Subscription expiry check failed:", error);
-        });
-      },
-      60 * 60 * 1000,
-    );
+    setInterval(async () => {
+      try {
+        await expireEndedSubscriptions();
+      } catch (error) {
+        console.error("Subscription expiry check failed:", error);
+      }
+    }, 60 * 60 * 1000);
 
-    app.listen(config.port, "0.0.0.0", () => {
-      console.log(`CodeForum API listening on port ${config.port}`);
+    app.listen(Number(config.port), "0.0.0.0", () => {
+      console.log(`Listening on port ${config.port}`);
     });
   } catch (error) {
-    console.error("Failed to start server:", error);
+    console.error("Failed to start server:");
+    console.error(error);
     process.exit(1);
   }
 };
 
-void startServer();
+startServer();
