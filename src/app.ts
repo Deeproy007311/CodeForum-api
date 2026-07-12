@@ -14,9 +14,19 @@ import subscriptionRouter from "./subscription/subscriptionRouter";
 
 const app = express();
 
+const allowedOrigins = config.frontendUrl
+  .split(",")
+  .map((url) => url.trim());
+
 app.use(
   cors({
-    origin: config.frontendUrl,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like Postman, curl, or server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
